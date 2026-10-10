@@ -1,0 +1,271 @@
+/* =========================================================
+   Actualités Parlement de la rivière Isère — styles
+   Calque strict de la vitrine Zotero (thème clair unique,
+   fond blanc, accent #0b4387 — CEO 09/10/26).
+   ========================================================= */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #eaf1fa;
+  --bg-card: #ffffff;
+  --text: #1a1a1a;
+  --text-muted: #6b7280;
+  --border: #e5e7eb;
+  --border-strong: #d1d5db;
+  --accent: #0b4387; /* bleu primaire du site hôte (personnel.css) */
+  --accent-hover: #1a63b0;
+  --tag-bg: #e8f0fb;
+  --tag-text: #0b4387;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.12);
+  --radius: 8px;
+  --radius-sm: 4px;
+  --max-width: 1400px;
+}
+
+/* Thème clair unique : neutralise le dark mode de l'OS */
+:root { color-scheme: light; }
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* 16.5px = 15px × 1.1 : rendu équivalent au « zoom 110 % » demandé par le CEO.
+     Toutes les autres tailles sont en rem → elles suivent cette base. */
+  font-size: 16.5px;
+  line-height: 1.5;
+}
+
+/* ============== Layout principal ============== */
+.layout {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-height: 100vh;
+}
+
+.page-header {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 1rem;
+}
+.page-title {
+  margin: 0 0 0.25rem;
+  font-size: 1.6rem;
+  color: var(--accent);
+  line-height: 1.25;
+}
+.page-subtitle {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.content { flex: 1; }
+
+.content-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.result-count {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* ============== Grille 3×3 (9 cartes visibles) ============== */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+/* Responsive : 2 colonnes puis 1 en dessous */
+@media (max-width: 1000px) {
+  .grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 640px) {
+  .grid { grid-template-columns: 1fr; }
+}
+
+/* ============== Carte d'actualité ============== */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+  box-shadow: var(--shadow-sm);
+}
+.card:hover {
+  transform: translateY(-2px);
+  /* Halo bleu léger, façon néon douce (calque vitrine) */
+  box-shadow: 0 0 0 1px rgba(11, 67, 135, 0.35),
+              0 4px 14px -2px rgba(11, 67, 135, 0.25),
+              0 0 18px rgba(11, 67, 135, 0.22);
+  border-color: rgba(11, 67, 135, 0.45);
+}
+.card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Badge de type */
+.card-type {
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--accent);
+  background: var(--tag-bg);
+}
+
+/* Palette de badges 100% claire (calque vitrine) */
+.card-type.type-evenement-avenir {
+  background: #e3ecf7;
+  border-color: #c3d3eb;
+  color: #2b579a; /* bleu Word */
+}
+.card-type.type-ressource-publiee {
+  background: #e3f1e8;
+  border-color: #bfdccb;
+  color: #1e6b3c; /* vert Excel */
+}
+.card-type.type-evenement-passe {
+  background: #f0f0f1;
+  border-color: #d9d9dc;
+  color: #5a5a5e; /* gris */
+}
+.card-type.type-information-parlement {
+  background: #fdf3d8;
+  border-color: #f2dfa4;
+  color: #8a6116; /* jaune Outlook */
+}
+
+.card-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+  line-height: 1.35;
+  /* Limite à 3 lignes */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.card-description {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text);
+  line-height: 1.45;
+  /* Description brève : limite à 4 lignes */
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.card-meta {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+.card-link {
+  margin-top: auto;
+  padding-top: 0.5rem;
+  font-size: 0.85rem;
+}
+.card-link a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+.card-link a:hover {
+  text-decoration: underline;
+  color: var(--accent-hover);
+}
+.card-link a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ============== Carrousel (pagination par lots de 9) ============== */
+.carousel-nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+.carousel-nav:empty { display: none; }
+
+.carousel-btn {
+  min-width: 2.4rem;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+  line-height: 1.2;
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.carousel-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.carousel-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.carousel-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.carousel-position {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+/* ============== État vide ============== */
+.empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--text-muted);
+}
+
+/* ============== Pied de page ============== */
+.page-footer {
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+  font-size: 0.8rem;
+}
+.page-footer p {
+  margin: 0;
+}
+
+/* ============== Utilitaires ============== */
+.muted { color: var(--text-muted); }
+.center { text-align: center; }
