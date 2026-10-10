@@ -30,7 +30,7 @@ const state = {
   page: 0, // index du lot de 9 (0-based)
   searchText: "",
   selectedYears: new Set(), // années cochées (vide = toutes)
-  selectedMonths: new Set(), // "AAAA-MM" cochés (vide = tous)
+  selectedMonths: new Set(), // numéros de mois "01"-"12" cochés (vide = tous)
 };
 
 /* ---------- Références DOM ---------- */
@@ -364,8 +364,10 @@ function getFilteredItems() {
     if (state.selectedYears.size > 0 && !hasIntersection(itemYears(it), state.selectedYears)) {
       return false;
     }
-    if (state.selectedMonths.size > 0 && !hasIntersection(new Set(itemMonths(it)), state.selectedMonths)) {
-      return false;
+    if (state.selectedMonths.size > 0) {
+      // Mois génériques "01"-"12" : l'année est portée par le filtre Année.
+      const months = new Set(itemMonths(it).map((k) => k.slice(5)));
+      if (!hasIntersection(months, state.selectedMonths)) return false;
     }
     return true;
   });
@@ -401,9 +403,9 @@ function buildFilterOption(cfg) {
   return row;
 }
 
-function monthLabel(key) {
-  const [y, m] = key.split("-").map(Number);
-  return `${MONTHS_FR[m - 1]} ${y}`;
+function monthLabel(num) {
+  // Numéro "01"-"12" → nom du mois seul (l'année vit dans le filtre Année).
+  return MONTHS_FR[Number(num) - 1];
 }
 
 // Fabrique un dropdown multi-choix générique (utilisé pour Année et Mois).
@@ -497,13 +499,14 @@ function buildFilterMenus() {
     () => yearDD.syncUI()
   );
 
-  // Mois distincts couverts, récents d'abord.
+  // Mois distincts couverts (numéro générique "01"-"12", sans année),
+  // dans l'ordre chronologique du calendrier — pas par récence.
   const keys = new Set();
-  for (const it of state.items) for (const m of itemMonths(it)) keys.add(m);
+  for (const it of state.items) for (const m of itemMonths(it)) keys.add(m.slice(5));
   fillMenu(
     els.monthMenu,
     "Tous les mois",
-    [...keys].sort((a, b) => (a < b ? 1 : a > b ? -1 : 0)).map((k) => ({ value: k, label: monthLabel(k) })),
+    [...keys].sort((a, b) => a.localeCompare(b)).map((k) => ({ value: k, label: monthLabel(k) })),
     state.selectedMonths,
     () => monthDD.syncUI()
   );
