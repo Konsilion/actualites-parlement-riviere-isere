@@ -11,7 +11,20 @@
     <section class="content" aria-label="Actualités">
       <div class="content-header">
         <span id="result-count" class="result-count">— actualités</span>
-        <div class="filters">
+        <div class="header-controls">
+          <nav id="pagination-top" class="pagination pagination-top" aria-label="Pagination haut"></nav>
+          <label for="page-size-select" class="page-size-label">Afficher
+            <select id="page-size-select">
+              <option value="9">9</option>
+              <option value="18">18</option>
+              <option value="36">36</option>
+              <option value="all">Tout</option>
+            </select>
+            par page
+          </label>
+        </div>
+      </div>
+      <div class="filters">
           <input
             type="search"
             id="search"
@@ -61,7 +74,7 @@
       <div id="grid" class="grid">
         <p class="muted center">Chargement des actualités…</p>
       </div>
-      <nav id="carousel-nav" class="carousel-nav" aria-label="Navigation du carrousel"></nav>
+      <nav id="pagination" class="pagination" aria-label="Pagination bas"></nav>
     </section>
   </main>
 

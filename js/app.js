@@ -1,7 +1,9 @@
 /* =========================================================
    Actualités Parlement de la rivière Isère — application
    Lit data/actualites.csv (source de vérité unique), rend une
-   grille 3×3 avec carrousel par lots de 9, filtres multi-
+   grille de cartes avec pagination calque strict de la vitrine
+   Zotero (‹ numéros › sélectionnables, barres haut + bas
+   synchronisées, taille de page 9/18/36/Tout), filtres multi-
    choix Année + Mois (menus déroulants custom) et recherche
    floue insensible casse/accents (calque vitrine Zotero).
    Zéro dépendance, zéro build.
@@ -10,7 +12,6 @@
 
 /* ---------- Constantes ---------- */
 const CSV_URL = "data/actualites.csv";
-const PAGE_SIZE = 9; // 3 lignes × 3 colonnes
 
 const TYPES = {
   evenement_a_venir: { label: "Événement à venir", slug: "evenement-avenir" },
@@ -27,10 +28,11 @@ const MONTHS_FR = [
 /* ---------- État ---------- */
 const state = {
   items: [],
-  page: 0, // index du lot de 9 (0-based)
   searchText: "",
   selectedYears: new Set(), // années cochées (vide = toutes)
   selectedMonths: new Set(), // numéros de mois "01"-"12" cochés (vide = tous)
+  pageSize: "9", // "9" | "18" | "36" | "all" (calque vitrine Zotero)
+  currentPage: 0, // index 0-based
 };
 
 /* ---------- Références DOM ---------- */
@@ -38,7 +40,9 @@ const els = {
   grid: null,
   count: null,
   search: null,
-  nav: null,
+  pagination: null,
+  paginationTop: null,
+  pageSizeSelect: null,
   yearDropdown: null,
   yearToggle: null,
   yearPill: null,
@@ -53,7 +57,9 @@ function grabEls() {
   els.grid = document.getElementById("grid");
   els.count = document.getElementById("result-count");
   els.search = document.getElementById("search");
-  els.nav = document.getElementById("carousel-nav");
+  els.pagination = document.getElementById("pagination");
+  els.paginationTop = document.getElementById("pagination-top");
+  els.pageSizeSelect = document.getElementById("page-size-select");
   els.yearDropdown = document.getElementById("year-dropdown");
   els.yearToggle = document.getElementById("year-toggle");
   els.yearPill = document.getElementById("year-pill");
@@ -462,7 +468,7 @@ function fillMenu(menu, allLabel, entries, set, syncFn) {
       isAll: true,
       onChange: () => {
         set.clear();
-        state.page = 0;
+        state.currentPage = 0; // tout filtre ramène à la page 1 (calque vitrine)
         syncFn();
         renderGrid();
       },
@@ -478,7 +484,7 @@ function fillMenu(menu, allLabel, entries, set, syncFn) {
         onChange: (checked) => {
           if (checked) set.add(en.value);
           else set.delete(en.value);
-          state.page = 0;
+          state.currentPage = 0; // tout filtre ramène à la page 1 (calque vitrine)
           syncFn();
           renderGrid();
         },
@@ -515,12 +521,29 @@ function buildFilterMenus() {
   monthDD.syncUI();
 }
 
-/* ---------- Carrousel : rendu du lot courant ---------- */
+/* ---------- Pagination (calque strict de la vitrine Zotero) ---------- */
+// Calcule la tranche courante + borne currentPage.
+function paginate(filtered) {
+  const pageSizeNum = (state.pageSize === "all") ? filtered.length : parseInt(state.pageSize, 10);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSizeNum));
+  if (state.currentPage >= totalPages) state.currentPage = totalPages - 1;
+  if (state.currentPage < 0) state.currentPage = 0;
+  const startIdx = state.currentPage * pageSizeNum;
+  return {
+    totalPages,
+    pageRows: filtered.slice(startIdx, startIdx + pageSizeNum),
+  };
+}
+
+/* ---------- Rendu de la page courante ---------- */
 function renderGrid() {
   if (!els.grid) return;
   els.grid.innerHTML = "";
 
   const items = getFilteredItems();
+  const { totalPages, pageRows } = paginate(items);
+  renderPagination(totalPages);
+
   if (!items.length) {
     const p = document.createElement("p");
     p.className = "empty";
@@ -530,17 +553,13 @@ function renderGrid() {
         : "Aucune actualité pour le moment.";
     els.grid.appendChild(p);
     updateCount(0);
-    renderNav();
     return;
   }
 
-  const start = state.page * PAGE_SIZE;
-  const slice = items.slice(start, start + PAGE_SIZE);
-  for (const item of slice) {
+  for (const item of pageRows) {
     els.grid.appendChild(renderCard(item));
   }
   updateCount(items.length);
-  renderNav();
 }
 
 function updateCount(n) {
@@ -548,49 +567,56 @@ function updateCount(n) {
   els.count.textContent = n === 0 ? "aucune actualité" : `${n} actualité${n > 1 ? "s" : ""}`;
 }
 
-/* ---------- Navigation du carrousel ---------- */
-function pageCount() {
-  return Math.max(1, Math.ceil(getFilteredItems().length / PAGE_SIZE));
-}
+/* ---------- Barres de pagination (haut + bas, synchronisées) ----------
+   ‹ / numéros / › : tous les numéros si ≤ 6 pages, sinon fenêtre
+   [première, dernière, courant±1] avec « … ». Chaque changement de
+   filtre ramène à la page 1 (calque vitrine Zotero). */
+function renderPagination(totalPages) {
+  const navs = [els.pagination, els.paginationTop].filter(Boolean);
 
-function renderNav() {
-  if (!els.nav) return;
-  els.nav.innerHTML = "";
+  if (state.pageSize === "all" || totalPages <= 1) {
+    navs.forEach((nav) => (nav.innerHTML = ""));
+    return;
+  }
 
-  if (getFilteredItems().length <= PAGE_SIZE) return; // une seule page : pas de nav
+  let html = `<button type="button" class="page-btn" data-page="prev" ${state.currentPage === 0 ? "disabled" : ""} aria-label="Page précédente">‹</button>`;
 
-  const prev = document.createElement("button");
-  prev.type = "button";
-  prev.className = "carousel-btn";
-  prev.textContent = "‹ Précédent";
-  prev.disabled = state.page === 0;
-  prev.addEventListener("click", () => {
-    if (state.page > 0) {
-      state.page--;
-      renderGrid();
-      scrollToTop();
+  if (totalPages <= 6) {
+    for (let i = 0; i < totalPages; i++) {
+      html += `<button type="button" class="page-num${i === state.currentPage ? " active" : ""}" data-page="${i}">${i + 1}</button>`;
     }
-  });
-  els.nav.appendChild(prev);
-
-  const pos = document.createElement("span");
-  pos.className = "carousel-position";
-  pos.textContent = `Page ${state.page + 1} / ${pageCount()}`;
-  els.nav.appendChild(pos);
-
-  const next = document.createElement("button");
-  next.type = "button";
-  next.className = "carousel-btn";
-  next.textContent = "Suivant ›";
-  next.disabled = state.page >= pageCount() - 1;
-  next.addEventListener("click", () => {
-    if (state.page < pageCount() - 1) {
-      state.page++;
-      renderGrid();
-      scrollToTop();
+  } else {
+    const pages = new Set([0, totalPages - 1, state.currentPage, state.currentPage - 1, state.currentPage + 1]);
+    let prevShown = -1;
+    for (let i = 0; i < totalPages; i++) {
+      if (pages.has(i)) {
+        html += `<button type="button" class="page-num${i === state.currentPage ? " active" : ""}" data-page="${i}">${i + 1}</button>`;
+        prevShown = i;
+      } else if (prevShown !== -2) {
+        html += `<span class="page-ellipsis">…</span>`;
+        prevShown = -2;
+      }
     }
+  }
+
+  html += `<button type="button" class="page-btn" data-page="next" ${state.currentPage >= totalPages - 1 ? "disabled" : ""} aria-label="Page suivante">›</button>`;
+
+  navs.forEach((nav) => {
+    nav.innerHTML = html;
+    nav.querySelectorAll("button[data-page]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const p = btn.dataset.page;
+        const prev = state.currentPage;
+        if (p === "prev") state.currentPage = Math.max(0, state.currentPage - 1);
+        else if (p === "next") state.currentPage = state.currentPage + 1;
+        else state.currentPage = parseInt(p, 10);
+        if (state.currentPage !== prev) {
+          renderGrid();
+          scrollToTop();
+        }
+      });
+    });
   });
-  els.nav.appendChild(next);
 }
 
 function scrollToTop() {
@@ -616,7 +642,7 @@ async function load() {
     }
     return;
   }
-  state.page = 0;
+  state.currentPage = 0;
   buildFilterMenus();
   renderGrid();
 }
@@ -628,10 +654,18 @@ function attachListeners() {
     clearTimeout(searchTimer);
     searchTimer = setTimeout(() => {
       state.searchText = e.target.value;
-      state.page = 0; // tout filtre ramène au premier lot
+      state.currentPage = 0; // tout filtre ramène à la page 1 (calque vitrine)
       renderGrid();
     }, 150);
   });
+
+  if (els.pageSizeSelect) {
+    els.pageSizeSelect.addEventListener("change", (e) => {
+      state.pageSize = e.target.value;
+      state.currentPage = 0; // changement de taille de page → retour page 1
+      renderGrid();
+    });
+  }
 }
 
 /* ---------- Boot ---------- */
