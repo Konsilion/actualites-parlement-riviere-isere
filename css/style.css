@@ -190,6 +190,51 @@ html, body {
   padding-bottom: 0.45rem;
 }
 
+/* --- Pastilles des mois sélectionnés (à droite du filtre Mois) --- */
+.month-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+.month-pills:empty { display: none; }
+.month-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.18rem 0.2rem 0.18rem 0.55rem;
+  font-size: 0.8rem;
+  line-height: 1.2;
+  /* fond bleu transparent léger, sobre (accent #0b4387 codé en dur) */
+  background: rgba(11, 67, 135, 0.08);
+  border: 1px solid rgba(11, 67, 135, 0.22);
+  border-radius: 999px;
+  color: var(--accent);
+}
+.month-pill-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-family: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+.month-pill-x:hover {
+  background: rgba(11, 67, 135, 0.15);
+}
+.month-pill-x:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 /* ============== Grille 3×3 (9 cartes visibles) ============== */
 .grid {
   display: grid;

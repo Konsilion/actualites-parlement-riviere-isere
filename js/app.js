@@ -51,6 +51,7 @@ const els = {
   monthToggle: null,
   monthPill: null,
   monthMenu: null,
+  monthPills: null,
 };
 
 function grabEls() {
@@ -68,6 +69,7 @@ function grabEls() {
   els.monthToggle = document.getElementById("month-toggle");
   els.monthPill = document.getElementById("month-pill");
   els.monthMenu = document.getElementById("month-menu");
+  els.monthPills = document.getElementById("month-pills");
 }
 
 /* ---------- Parseur CSV robuste (RFC 4180 simplifié) ----------
@@ -538,6 +540,42 @@ function applyDefaultFilters(now = new Date()) {
   if (nextMonth === "01") state.selectedYears.add(String(now.getFullYear() + 1));
 }
 
+/* ---------- Pastilles des mois sélectionnés (CEO 11/10/26) ----------
+   Une pastille par mois coché, à droite du filtre Mois ; la croix
+   retire le mois (menu, pill du filtre et grille resynchronisés).
+   Appelée à chaque renderGrid : aucun chemin de changement ne peut
+   désynchroniser les pastilles du menu. */
+function renderMonthPills() {
+  if (!els.monthPills) return;
+  els.monthPills.innerHTML = "";
+
+  const months = [...state.selectedMonths].sort((a, b) => a.localeCompare(b));
+  for (const m of months) {
+    const pill = document.createElement("span");
+    pill.className = "month-pill";
+
+    const label = document.createElement("span");
+    label.className = "month-pill-name";
+    label.textContent = monthLabel(m);
+    pill.appendChild(label);
+
+    const x = document.createElement("button");
+    x.type = "button";
+    x.className = "month-pill-x";
+    x.setAttribute("aria-label", "Retirer le filtre " + monthLabel(m));
+    x.textContent = "×";
+    x.addEventListener("click", () => {
+      state.selectedMonths.delete(m);
+      state.currentPage = 0; // tout changement de filtre ramène à la page 1
+      monthDD.syncUI();
+      renderGrid();
+    });
+    pill.appendChild(x);
+
+    els.monthPills.appendChild(pill);
+  }
+}
+
 /* ---------- Pagination (calque strict de la vitrine Zotero) ---------- */
 // Calcule la tranche courante + borne currentPage.
 function paginate(filtered) {
@@ -556,6 +594,7 @@ function paginate(filtered) {
 function renderGrid() {
   if (!els.grid) return;
   els.grid.innerHTML = "";
+  renderMonthPills();
 
   const items = getFilteredItems();
   const { totalPages, pageRows } = paginate(items);
