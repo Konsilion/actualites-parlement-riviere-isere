@@ -4,20 +4,6 @@
   "fenetre": "26/08/2026 - 10/10/2026 (57 mails scannés)",
   "propositions": [
     {
-      "numero": 1,
-      "titre": "Séminaire MEPAG — restitution intermédiaire « Manquer d'eau potable à Grenoble ? »",
-      "type": "evenement_a_venir",
-      "date_debut": "2026-11-27",
-      "date_fin": "",
-      "heure": "13h00 - 17h30",
-      "lieu": "Salle A 177, Maison Climat Planète (IGE), campus UGA, Grenoble",
-      "lien": "https://www.ige-grenoble.fr/Contact-Acces",
-      "source_message_id": "fc703a1ddbf56f5710de2032a1fffacd@free.fr",
-      "source_uid": 272,
-      "resume": "Restitution intermédiaire du projet de recherche MEPAG : une géohistoire des sécheresses dans les bassins du Drac et de la Romanche, du XIXe siècle à aujourd'hui.",
-      "confiance_pct": 92
-    },
-    {
       "numero": 2,
       "titre": "Forum « Eau dans la ville » — gestion des eaux de pluie",
       "type": "evenement_a_venir",
@@ -30,21 +16,6 @@
       "source_uid": 203,
       "resume": "Événement biennal de Grenoble Alpes Métropole dédié à la gestion de l'eau de pluie : retours d'expériences sur les projets d'aménagement publics et privés.",
       "confiance_pct": 88
-    },
-    {
-      "numero": 3,
-      "titre": "Séminaire POPSU Grenoble — « Retrouver les voi(es)x de l'eau »",
-      "type": "evenement_a_venir",
-      "date_debut": "2026-11-19",
-      "date_fin": "",
-      "heure": "9h - 12h",
-      "lieu": "Salle Rocher Blanc, bâtiment Malraux, 1 place André Malraux, Grenoble",
-      "lien": "https://popsu.archi.fr/projet/grenoble-alpes-metropole-0",
-      "source_message_id": "528e822c22a14c020f3cb77ff808528c@free.fr",
-      "source_uid": 271,
-      "resume": "Séminaire POPSU Transitions « Grenoble XXI » : mise en débat des premiers livrables et résultats du programme sur l'eau, quand la recherche sillonne vers l'action.",
-      "confiance_pct": 85,
-      "remarque": "Lien = page officielle du programme POPSU Grenoble (le séminaire du 19/11 n'a pas de page dédiée indexée)."
     },
     {
       "numero": 4,
