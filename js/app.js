@@ -521,6 +521,23 @@ function buildFilterMenus() {
   monthDD.syncUI();
 }
 
+/* ---------- Filtres cochés par défaut (CEO 11/10/26) ----------
+   À l'ouverture : année en cours + mois en cours et mois à venir
+   cochés — la page démarre sur l'actualité du moment, l'archive
+   reste accessible en décochant. En décembre, le mois à venir
+   est janvier de l'année suivante : on coche aussi l'année
+   suivante, sinon les items du mois à venir seraient filtrés.
+   `now` est paramétrable pour tester le passage d'année. */
+function applyDefaultFilters(now = new Date()) {
+  const year = String(now.getFullYear());
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const nextMonth = now.getMonth() === 11 ? "01" : String(now.getMonth() + 2).padStart(2, "0");
+  state.selectedYears.add(year);
+  state.selectedMonths.add(month);
+  state.selectedMonths.add(nextMonth);
+  if (nextMonth === "01") state.selectedYears.add(String(now.getFullYear() + 1));
+}
+
 /* ---------- Pagination (calque strict de la vitrine Zotero) ---------- */
 // Calcule la tranche courante + borne currentPage.
 function paginate(filtered) {
@@ -643,6 +660,7 @@ async function load() {
     return;
   }
   state.currentPage = 0;
+  applyDefaultFilters(); // année en cours + mois en cours/à venir cochés (CEO 11/10/26)
   buildFilterMenus();
   renderGrid();
 }
