@@ -1,7 +1,7 @@
 /* =========================================================
    Actualités Parlement de la rivière Isère — application
    Lit data/actualites.csv (source de vérité unique), rend une
-   grille 3×3 avec carrousel par lots de 9.
+   grille 3×3 avec carrousel par lots de 9 et filtre mois/année.
    Zéro dépendance, zéro build.
    ========================================================= */
 "use strict";
@@ -21,11 +21,12 @@ const TYPES = {
 const state = {
   items: [],
   page: 0, // index du lot de 9 (0-based)
+  monthFilter: "", // "" = tous les mois ; sinon "AAAA-MM"
 };
 
 /* ---------- Parseur CSV robuste (RFC 4180 simplifié) ----------
    Gère : virgules dans les champs, guillemets doubles, guillemets
-   échappés ("") , retours chariot CRLF, UTF-8 (décodage par le
+   échappés (""), retours chariot CRLF, UTF-8 (décodage par le
    fetch + TextDecoder). */
 function parseCSV(text) {
   const rows = [];
@@ -88,20 +89,19 @@ function rowsToItems(rows) {
   return items;
 }
 
+/* ---------- Date ISO (AAAA-MM-JJ) → objet Date ---------- */
+function parseISO(iso) {
+  const parts = (iso || "").trim().split("-");
+  if (parts.length !== 3) return null;
+  const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  return isNaN(d) ? null : d;
+}
+
 /* ---------- Tri : événements à venir d'abord, puis par date ---------- */
 function sortItems(items) {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-  const ts = (a) => {
-    const d = (a.date_debut || a.date_ajout || "").trim();
-    const parts = d.split("-");
-    if (parts.length === 3) {
-      const dt = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-      if (!isNaN(dt)) return dt;
-    }
-    return null;
-  };
+  const ts = (a) => parseISO(a.date_debut || a.date_ajout || "");
 
   return items.slice().sort((a, b) => {
     const ta = ts(a) || today;
@@ -188,16 +188,82 @@ function renderCard(item) {
   return card;
 }
 
+/* ---------- Filtre mois/année ----------
+   Une actualité appartient à tous les mois couverts par sa
+   période (date_debut → date_fin, ou date_debut/date_ajout
+   seul si pas de fin) : une exposition de juillet à novembre
+   apparaît dans chacun de ces mois. */
+function itemMonths(item) {
+  const de = parseISO(item.date_debut || item.date_ajout || "");
+  const fi = parseISO(item.date_fin || item.date_debut || item.date_ajout || "");
+  const months = [];
+  if (!de || !fi) return months;
+  let cur = new Date(de.getFullYear(), de.getMonth(), 1);
+  const end = new Date(fi.getFullYear(), fi.getMonth(), 1);
+  // Garde-fou : 24 mois max par item (données corrompues → pas de boucle folle)
+  while (cur <= end && months.length < 24) {
+    months.push(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}`);
+    cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+  }
+  return months;
+}
+
+function buildMonthOptions() {
+  const sel = document.getElementById("month-select");
+  if (!sel) return;
+  const keys = new Set();
+  for (const it of state.items) {
+    for (const m of itemMonths(it)) keys.add(m);
+  }
+  const sorted = [...keys].sort((a, b) => (a < b ? 1 : a > b ? -1 : 0)); // récent d'abord
+
+  sel.innerHTML = "";
+  const all = document.createElement("option");
+  all.value = "";
+  all.textContent = "Tous les mois";
+  sel.appendChild(all);
+
+  for (const k of sorted) {
+    const [y, m] = k.split("-").map(Number);
+    const d = new Date(y, m - 1, 1);
+    let label = d.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+    label = label.charAt(0).toUpperCase() + label.slice(1);
+    const opt = document.createElement("option");
+    opt.value = k;
+    opt.textContent = label;
+    sel.appendChild(opt);
+  }
+  sel.value = state.monthFilter;
+}
+
+function filteredItems() {
+  if (!state.monthFilter) return state.items;
+  return state.items.filter((it) => itemMonths(it).includes(state.monthFilter));
+}
+
+function bindMonthFilter() {
+  const sel = document.getElementById("month-select");
+  if (!sel) return;
+  sel.addEventListener("change", () => {
+    state.monthFilter = sel.value;
+    state.page = 0; // changement de filtre → retour au premier lot
+    renderGrid();
+  });
+}
+
 /* ---------- Carrousel : rendu du lot courant ---------- */
 function renderGrid() {
   const grid = document.getElementById("grid");
   if (!grid) return;
   grid.innerHTML = "";
 
-  if (!state.items.length) {
+  const items = filteredItems();
+  if (!items.length) {
     const p = document.createElement("p");
     p.className = "empty";
-    p.textContent = "Aucune actualité pour le moment.";
+    p.textContent = state.monthFilter
+      ? "Aucune actualité pour ce mois."
+      : "Aucune actualité pour le moment.";
     grid.appendChild(p);
     updateCount(0);
     renderNav();
@@ -205,11 +271,11 @@ function renderGrid() {
   }
 
   const start = state.page * PAGE_SIZE;
-  const slice = state.items.slice(start, start + PAGE_SIZE);
+  const slice = items.slice(start, start + PAGE_SIZE);
   for (const item of slice) {
     grid.appendChild(renderCard(item));
   }
-  updateCount(state.items.length);
+  updateCount(items.length);
   renderNav();
 }
 
@@ -221,7 +287,7 @@ function updateCount(n) {
 
 /* ---------- Navigation du carrousel ---------- */
 function pageCount() {
-  return Math.max(1, Math.ceil(state.items.length / PAGE_SIZE));
+  return Math.max(1, Math.ceil(filteredItems().length / PAGE_SIZE));
 }
 
 function renderNav() {
@@ -229,7 +295,7 @@ function renderNav() {
   if (!nav) return;
   nav.innerHTML = "";
 
-  if (state.items.length <= PAGE_SIZE) return; // une seule page : pas de nav
+  if (filteredItems().length <= PAGE_SIZE) return; // une seule page : pas de nav
 
   const prev = document.createElement("button");
   prev.type = "button";
@@ -290,7 +356,9 @@ async function load() {
     return;
   }
   state.page = 0;
+  buildMonthOptions();
   renderGrid();
 }
 
+bindMonthFilter();
 document.addEventListener("DOMContentLoaded", load);

@@ -8,29 +8,18 @@
 </head>
 <body>
   <main class="layout">
-    <header class="page-header">
-      <h1 class="page-title">Actualités</h1>
-      <p class="page-subtitle">
-        Événements, ressources et informations du Parlement de la rivière Isère.
-      </p>
-    </header>
-
     <section class="content" aria-label="Actualités">
       <div class="content-header">
         <span id="result-count" class="result-count">— actualités</span>
+        <select id="month-select" class="month-select" aria-label="Filtrer par mois">
+          <option value="">Tous les mois</option>
+        </select>
       </div>
       <div id="grid" class="grid">
         <p class="muted center">Chargement des actualités…</p>
       </div>
       <nav id="carousel-nav" class="carousel-nav" aria-label="Navigation du carrousel"></nav>
     </section>
-
-    <footer class="page-footer">
-      <p class="muted">
-        Parlement de la rivière Isère — grille des actualités.
-        Les actualités affichées ont été validées avant publication.
-      </p>
-    </footer>
   </main>
 
   <script src="js/app.js"></script>

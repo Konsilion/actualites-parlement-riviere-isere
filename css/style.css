@@ -52,22 +52,6 @@ html, body {
   min-height: 100vh;
 }
 
-.page-header {
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 1rem;
-}
-.page-title {
-  margin: 0 0 0.25rem;
-  font-size: 1.6rem;
-  color: var(--accent);
-  line-height: 1.25;
-}
-.page-subtitle {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 0.95rem;
-}
-
 .content { flex: 1; }
 
 .content-header {
@@ -81,6 +65,27 @@ html, body {
 .result-count {
   color: var(--text-muted);
   font-size: 0.9rem;
+}
+
+/* ============== Filtre mois / année ============== */
+.month-select {
+  font-family: inherit;
+  font-size: 0.9rem;
+  color: var(--text);
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 0.3rem 0.55rem;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.month-select:hover {
+  border-color: var(--accent);
+}
+.month-select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* ============== Grille 3×3 (9 cartes visibles) ============== */
@@ -254,16 +259,6 @@ html, body {
   text-align: center;
   padding: 3rem 1rem;
   color: var(--text-muted);
-}
-
-/* ============== Pied de page ============== */
-.page-footer {
-  border-top: 1px solid var(--border);
-  padding-top: 1rem;
-  font-size: 0.8rem;
-}
-.page-footer p {
-  margin: 0;
 }
 
 /* ============== Utilitaires ============== */
