@@ -67,12 +67,15 @@ html, body {
 }
 
 /* Barre unique (le plus d'in-line possible) : filtres à gauche,
-   pagination + taille de page tout à droite ; en écran étroit le
-   groupe pagination repasse SOUS les filtres (flex-wrap). */
+   puis pastilles des mois juste après, pagination + taille de page
+   tout à droite via margin-left:auto (pas de space-between : il
+   pousserait les pastilles vers la droite quand la pagination
+   passe à la ligne — CEO 11/10/26) ; en écran étroit chaque groupe
+   repasse à la ligne, aligné à GAUCHE. */
 .toolbar {
   display: flex;
   flex-wrap: wrap;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
   gap: 0.5rem;
   width: 100%;
