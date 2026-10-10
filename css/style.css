@@ -56,15 +56,26 @@ html, body {
 
 .content-header {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 0.5rem;
   margin-bottom: 1rem;
 }
 .result-count {
   color: var(--text-muted);
   font-size: 0.9rem;
+}
+
+/* Barre unique (le plus d'in-line possible) : filtres à gauche,
+   pagination + taille de page tout à droite ; en écran étroit le
+   groupe pagination repasse SOUS les filtres (flex-wrap). */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
 }
 
 /* ============== Barre de filtres (recherche + Année + Mois) ============== */
@@ -310,6 +321,7 @@ html, body {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.75rem;
+  margin-left: auto; /* tout à droite, même repassé en dessous (responsive) */
 }
 
 /* Select taille de page (entête de grille) */
