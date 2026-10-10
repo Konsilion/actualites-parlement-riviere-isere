@@ -67,25 +67,116 @@ html, body {
   font-size: 0.9rem;
 }
 
-/* ============== Filtre mois / année ============== */
-.month-select {
+/* ============== Barre de filtres (recherche + Année + Mois) ============== */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.search-input {
   font-family: inherit;
   font-size: 0.9rem;
   color: var(--text);
-  background: var(--bg-card);
+  background: #ffffff;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
-  padding: 0.3rem 0.55rem;
+  padding: 0.35rem 0.6rem;
   line-height: 1.2;
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
+  min-width: 13rem;
 }
-.month-select:hover {
+.search-input::placeholder { color: var(--text-muted); }
+.search-input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
   border-color: var(--accent);
 }
-.month-select:focus-visible {
+
+/* --- Dropdowns multi-choix (le <select> natif refuse le multi) --- */
+.fdropdown { position: relative; }
+.f-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+  color: var(--text);
+  font-size: 0.9rem;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  line-height: 1.2;
+}
+.f-toggle:hover { border-color: var(--accent); }
+.f-toggle:focus {
   outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline-offset: -1px;
+  border-color: var(--accent);
+}
+.f-toggle.active .f-pill {
+  color: var(--accent);
+  font-weight: 600;
+}
+.f-caret {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  flex: none;
+  transition: transform 0.15s;
+}
+.fdropdown.open .f-caret { transform: rotate(180deg); }
+.f-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 0.3rem);
+  right: 0;
+  min-width: 100%;
+  z-index: 60;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.4rem;
+  background: #ffffff;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  max-height: 280px;
+  overflow-y: auto;
+}
+.f-menu.open { display: flex; }
+.f-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.4rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.9rem;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+.f-option:hover { background: var(--bg-soft); }
+.f-option input[type="checkbox"] {
+  margin: 0;
+  accent-color: var(--accent);
+  width: 0.95rem;
+  height: 0.95rem;
+  flex: none;
+  cursor: pointer;
+}
+.f-option-name { flex: 1; }
+.f-option.active .f-option-name {
+  color: var(--accent);
+  font-weight: 600;
+}
+/* Option « Tous… » : séparée de la liste */
+.f-option.f-all {
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  margin-bottom: 0.25rem;
+  padding-bottom: 0.45rem;
 }
 
 /* ============== Grille 3×3 (9 cartes visibles) ============== */

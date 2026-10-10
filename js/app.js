@@ -1,7 +1,9 @@
 /* =========================================================
    Actualités Parlement de la rivière Isère — application
    Lit data/actualites.csv (source de vérité unique), rend une
-   grille 3×3 avec carrousel par lots de 9 et filtre mois/année.
+   grille 3×3 avec carrousel par lots de 9, filtres multi-
+   choix Année + Mois (menus déroulants custom) et recherche
+   floue insensible casse/accents (calque vitrine Zotero).
    Zéro dépendance, zéro build.
    ========================================================= */
 "use strict";
@@ -17,12 +19,50 @@ const TYPES = {
   information_parlement: { label: "Information du parlement", slug: "information-parlement" },
 };
 
+const MONTHS_FR = [
+  "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+  "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
+];
+
 /* ---------- État ---------- */
 const state = {
   items: [],
   page: 0, // index du lot de 9 (0-based)
-  monthFilter: "", // "" = tous les mois ; sinon "AAAA-MM"
+  searchText: "",
+  selectedYears: new Set(), // années cochées (vide = toutes)
+  selectedMonths: new Set(), // "AAAA-MM" cochés (vide = tous)
 };
+
+/* ---------- Références DOM ---------- */
+const els = {
+  grid: null,
+  count: null,
+  search: null,
+  nav: null,
+  yearDropdown: null,
+  yearToggle: null,
+  yearPill: null,
+  yearMenu: null,
+  monthDropdown: null,
+  monthToggle: null,
+  monthPill: null,
+  monthMenu: null,
+};
+
+function grabEls() {
+  els.grid = document.getElementById("grid");
+  els.count = document.getElementById("result-count");
+  els.search = document.getElementById("search");
+  els.nav = document.getElementById("carousel-nav");
+  els.yearDropdown = document.getElementById("year-dropdown");
+  els.yearToggle = document.getElementById("year-toggle");
+  els.yearPill = document.getElementById("year-pill");
+  els.yearMenu = document.getElementById("year-menu");
+  els.monthDropdown = document.getElementById("month-dropdown");
+  els.monthToggle = document.getElementById("month-toggle");
+  els.monthPill = document.getElementById("month-pill");
+  els.monthMenu = document.getElementById("month-menu");
+}
 
 /* ---------- Parseur CSV robuste (RFC 4180 simplifié) ----------
    Gère : virgules dans les champs, guillemets doubles, guillemets
@@ -133,6 +173,106 @@ function formatDates(item) {
   return "";
 }
 
+/* ---------- Recherche : normalisation + fuzzy (calque vitrine) ----------
+   Insensible casse/accents + tolérance aux petites fautes. Deux étapes :
+     1. sous-chaîne sur le texte NORMALISÉ (casse, accents, œ, ') ;
+     2. mode flou par mot : chaque mot significatif (≥ 2 car.) de la
+        requête doit se trouver dans la fiche, exact ou à ~1-2 fautes
+        près (Damerau-Levenshtein borné).
+   Calibrage (vitrine 10/10/26) : 0 faute ≤ 5 car., 1 faute 6-12,
+   2 fautes 13-20, floor(n/10) au-delà. */
+const FOLD_MAP = { "œ": "oe", "æ": "ae", "Œ": "oe", "Æ": "ae", "’": "'", "‘": "'" };
+
+const searchNormalize = (s) =>
+  String(s ?? "")
+    .replace(/[œæŒÆ]/g, (m) => FOLD_MAP[m])
+    .replace(/[’‘]/g, "'")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+const searchSplitWords = (s) =>
+  searchNormalize(s).split(/[^a-z0-9]+/).filter(Boolean);
+
+// Distance de Damerau-Levenshtein restreinte (substitution, insertion,
+// suppression, transposition adjacente), bornée par max : renvoie max+1
+// dès que la distance excède max (coupe précoce, mots courts).
+function boundedEditDistance(a, b, max) {
+  const la = a.length, lb = b.length;
+  if (Math.abs(la - lb) > max) return max + 1;
+  if (la === 0) return lb > max ? max + 1 : lb;
+  let dPrev2 = new Int32Array(lb + 1);
+  let dPrev = new Int32Array(lb + 1);
+  let dCur = new Int32Array(lb + 1);
+  for (let j = 0; j <= lb; j++) dPrev[j] = j;
+  for (let i = 1; i <= la; i++) {
+    dCur[0] = i;
+    let rowMin = i;
+    const ca = a.charCodeAt(i - 1);
+    for (let j = 1; j <= lb; j++) {
+      const cost = ca === b.charCodeAt(j - 1) ? 0 : 1;
+      let v = Math.min(dCur[j - 1] + 1, dPrev[j] + 1, dPrev[j - 1] + cost);
+      if (
+        i > 1 && j > 1 &&
+        ca === b.charCodeAt(j - 2) &&
+        a.charCodeAt(i - 2) === b.charCodeAt(j - 1)
+      ) {
+        v = Math.min(v, dPrev2[j - 2] + 1);
+      }
+      dCur[j] = v;
+      if (v < rowMin) rowMin = v;
+    }
+    if (rowMin > max) return max + 1;
+    const t = dPrev2; dPrev2 = dPrev; dPrev = dCur; dCur = t;
+  }
+  return dPrev[lb] > max ? max + 1 : dPrev[lb];
+}
+
+// Nombre de fautes tolérées pour un mot de la requête.
+const typoBudget = (w) =>
+  w.length <= 5 ? 0 : w.length <= 12 ? 1 : w.length <= 20 ? 2 : Math.floor(w.length / 10);
+
+// Un mot de requête correspond-il ? Exact d'abord (Set), sinon flou borné
+// sur les seuls mots de longueur comparable.
+function wordMatches(qWord, index) {
+  if (index.set.has(qWord)) return true;
+  const budget = typoBudget(qWord);
+  if (budget === 0) return false;
+  for (const w of index.words) {
+    if (w.length < qWord.length - budget || w.length > qWord.length + budget) continue;
+    if (boundedEditDistance(qWord, w, budget) <= budget) return true;
+  }
+  return false;
+}
+
+// Index de recherche par actualité, en cache (le CSV ne change pas
+// sans recharger la page). Haystack : titre + description + lieu +
+// libellé du type (les dates restent dans le filtre mois, pas la
+// recherche).
+const searchIndexCache = new Map(); // id → { norm, words, set }
+function getSearchIndex(item) {
+  let index = searchIndexCache.get(item.id);
+  if (!index) {
+    const norm = searchNormalize(
+      [item.titre, item.description, item.lieu, TYPES[item.type]?.label || item.type || ""]
+        .join(" ")
+    );
+    const words = searchSplitWords(norm);
+    index = { norm, words, set: new Set(words) };
+    searchIndexCache.set(item.id, index);
+  }
+  return index;
+}
+
+function matchesQuery(item, qNorm, qWords) {
+  // 1) sous-chaîne normalisée : casse/accents/apostrophes ignorés.
+  const index = getSearchIndex(item);
+  if (index.norm.includes(qNorm)) return true;
+  // 2) mode flou : chaque mot significatif doit matcher indépendamment.
+  if (qWords.length === 0) return false;
+  return qWords.every((w) => wordMatches(w, index));
+}
+
 /* ---------- Échappement HTML ---------- */
 function esc(s) {
   return String(s || "")
@@ -188,7 +328,7 @@ function renderCard(item) {
   return card;
 }
 
-/* ---------- Filtre mois/année ----------
+/* ---------- Mois / années couverts par une actualité ----------
    Une actualité appartient à tous les mois couverts par sa
    période (date_debut → date_fin, ou date_debut/date_ajout
    seul si pas de fin) : une exposition de juillet à novembre
@@ -208,63 +348,184 @@ function itemMonths(item) {
   return months;
 }
 
-function buildMonthOptions() {
-  const sel = document.getElementById("month-select");
-  if (!sel) return;
-  const keys = new Set();
-  for (const it of state.items) {
-    for (const m of itemMonths(it)) keys.add(m);
-  }
-  const sorted = [...keys].sort((a, b) => (a < b ? 1 : a > b ? -1 : 0)); // récent d'abord
-
-  sel.innerHTML = "";
-  const all = document.createElement("option");
-  all.value = "";
-  all.textContent = "Tous les mois";
-  sel.appendChild(all);
-
-  for (const k of sorted) {
-    const [y, m] = k.split("-").map(Number);
-    const d = new Date(y, m - 1, 1);
-    let label = d.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
-    label = label.charAt(0).toUpperCase() + label.slice(1);
-    const opt = document.createElement("option");
-    opt.value = k;
-    opt.textContent = label;
-    sel.appendChild(opt);
-  }
-  sel.value = state.monthFilter;
+function itemYears(item) {
+  const years = new Set();
+  for (const m of itemMonths(item)) years.add(m.slice(0, 4));
+  return years;
 }
 
-function filteredItems() {
-  if (!state.monthFilter) return state.items;
-  return state.items.filter((it) => itemMonths(it).includes(state.monthFilter));
-}
+/* ---------- Filtrage combiné (recherche ∧ année ∧ mois) ---------- */
+function getFilteredItems() {
+  const qNorm = searchNormalize(state.searchText.trim());
+  const qWords = qNorm ? qNorm.split(/[^a-z0-9]+/).filter((w) => w.length >= 2) : [];
 
-function bindMonthFilter() {
-  const sel = document.getElementById("month-select");
-  if (!sel) return;
-  sel.addEventListener("change", () => {
-    state.monthFilter = sel.value;
-    state.page = 0; // changement de filtre → retour au premier lot
-    renderGrid();
+  return state.items.filter((it) => {
+    if (qNorm && !matchesQuery(it, qNorm, qWords)) return false;
+    if (state.selectedYears.size > 0 && !hasIntersection(itemYears(it), state.selectedYears)) {
+      return false;
+    }
+    if (state.selectedMonths.size > 0 && !hasIntersection(new Set(itemMonths(it)), state.selectedMonths)) {
+      return false;
+    }
+    return true;
   });
+}
+
+function hasIntersection(a, b) {
+  for (const v of a) if (b.has(v)) return true;
+  return false;
+}
+
+/* ---------- Menus déroulants multi-choix (Année, Mois) ----------
+   Le <select> natif ne permet PAS le multi-choix : dropdown custom
+   (calque vitrine) — bouton pill + menu checkboxes, clic-dehors et
+   Échap ferment, l'option « Tous… » décoche tout d'un clic. */
+
+function buildFilterOption(cfg) {
+  // cfg : { value, label, checked, isAll, onChange }
+  const row = document.createElement("label");
+  row.className = "f-option" + (cfg.isAll ? " f-all" : "");
+  row.dataset.value = cfg.value;
+  row.setAttribute("role", "option");
+
+  const box = document.createElement("input");
+  box.type = "checkbox";
+  box.checked = cfg.checked;
+  box.addEventListener("change", () => cfg.onChange(box.checked));
+
+  const name = document.createElement("span");
+  name.className = "f-option-name";
+  name.textContent = cfg.label;
+
+  row.append(box, name);
+  return row;
+}
+
+function monthLabel(key) {
+  const [y, m] = key.split("-").map(Number);
+  return `${MONTHS_FR[m - 1]} ${y}`;
+}
+
+// Fabrique un dropdown multi-choix générique (utilisé pour Année et Mois).
+function makeDropdown({ dropdown, toggle, pill, menu, set, allLabel, unitWord, labelOf }) {
+  const isOpen = () => menu.classList.contains("open");
+  const setOpen = (open) => {
+    dropdown.classList.toggle("open", open);
+    menu.classList.toggle("open", open);
+    toggle.setAttribute("aria-expanded", open ? "true" : "false");
+  };
+
+  function pillLabel() {
+    const n = set.size;
+    if (n === 0) return allLabel;
+    if (n === 1) return labelOf([...set][0]);
+    return `${n} ${unitWord}`;
+  }
+
+  function syncUI() {
+    menu.querySelectorAll(".f-option").forEach((row) => {
+      const value = row.dataset.value;
+      const checked = value === "" ? set.size === 0 : set.has(value);
+      row.querySelector("input").checked = checked;
+      row.classList.toggle("active", checked);
+      row.setAttribute("aria-selected", checked ? "true" : "false");
+    });
+    pill.textContent = pillLabel();
+    toggle.classList.toggle("active", set.size > 0);
+  }
+
+  toggle.addEventListener("click", () => setOpen(!isOpen()));
+  document.addEventListener("click", (e) => {
+    if (isOpen() && !dropdown.contains(e.target)) setOpen(false);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && isOpen()) {
+      setOpen(false);
+      toggle.focus();
+    }
+  });
+
+  return { setOpen, syncUI };
+}
+
+/* ---------- Remplissage des menus ---------- */
+function fillMenu(menu, allLabel, entries, set, syncFn) {
+  // entries : [{ value, label }]
+  menu.innerHTML = "";
+  menu.appendChild(
+    buildFilterOption({
+      value: "",
+      label: allLabel,
+      checked: set.size === 0,
+      isAll: true,
+      onChange: () => {
+        set.clear();
+        state.page = 0;
+        syncFn();
+        renderGrid();
+      },
+    })
+  );
+  for (const en of entries) {
+    menu.appendChild(
+      buildFilterOption({
+        value: en.value,
+        label: en.label,
+        checked: set.has(en.value),
+        isAll: false,
+        onChange: (checked) => {
+          if (checked) set.add(en.value);
+          else set.delete(en.value);
+          state.page = 0;
+          syncFn();
+          renderGrid();
+        },
+      })
+    );
+  }
+}
+
+function buildFilterMenus() {
+  // Années distinctes couvertes, triées desc.
+  const years = new Set();
+  for (const it of state.items) for (const y of itemYears(it)) years.add(y);
+  fillMenu(
+    els.yearMenu,
+    "Toutes les années",
+    [...years].sort((a, b) => b.localeCompare(a)).map((y) => ({ value: y, label: y })),
+    state.selectedYears,
+    () => yearDD.syncUI()
+  );
+
+  // Mois distincts couverts, récents d'abord.
+  const keys = new Set();
+  for (const it of state.items) for (const m of itemMonths(it)) keys.add(m);
+  fillMenu(
+    els.monthMenu,
+    "Tous les mois",
+    [...keys].sort((a, b) => (a < b ? 1 : a > b ? -1 : 0)).map((k) => ({ value: k, label: monthLabel(k) })),
+    state.selectedMonths,
+    () => monthDD.syncUI()
+  );
+
+  yearDD.syncUI();
+  monthDD.syncUI();
 }
 
 /* ---------- Carrousel : rendu du lot courant ---------- */
 function renderGrid() {
-  const grid = document.getElementById("grid");
-  if (!grid) return;
-  grid.innerHTML = "";
+  if (!els.grid) return;
+  els.grid.innerHTML = "";
 
-  const items = filteredItems();
+  const items = getFilteredItems();
   if (!items.length) {
     const p = document.createElement("p");
     p.className = "empty";
-    p.textContent = state.monthFilter
-      ? "Aucune actualité pour ce mois."
-      : "Aucune actualité pour le moment.";
-    grid.appendChild(p);
+    p.textContent =
+      state.searchText.trim() || state.selectedYears.size || state.selectedMonths.size
+        ? "Aucune actualité ne correspond à ces filtres."
+        : "Aucune actualité pour le moment.";
+    els.grid.appendChild(p);
     updateCount(0);
     renderNav();
     return;
@@ -273,29 +534,27 @@ function renderGrid() {
   const start = state.page * PAGE_SIZE;
   const slice = items.slice(start, start + PAGE_SIZE);
   for (const item of slice) {
-    grid.appendChild(renderCard(item));
+    els.grid.appendChild(renderCard(item));
   }
   updateCount(items.length);
   renderNav();
 }
 
 function updateCount(n) {
-  const el = document.getElementById("result-count");
-  if (!el) return;
-  el.textContent = n === 0 ? "aucune actualité" : `${n} actualité${n > 1 ? "s" : ""}`;
+  if (!els.count) return;
+  els.count.textContent = n === 0 ? "aucune actualité" : `${n} actualité${n > 1 ? "s" : ""}`;
 }
 
 /* ---------- Navigation du carrousel ---------- */
 function pageCount() {
-  return Math.max(1, Math.ceil(filteredItems().length / PAGE_SIZE));
+  return Math.max(1, Math.ceil(getFilteredItems().length / PAGE_SIZE));
 }
 
 function renderNav() {
-  const nav = document.getElementById("carousel-nav");
-  if (!nav) return;
-  nav.innerHTML = "";
+  if (!els.nav) return;
+  els.nav.innerHTML = "";
 
-  if (filteredItems().length <= PAGE_SIZE) return; // une seule page : pas de nav
+  if (getFilteredItems().length <= PAGE_SIZE) return; // une seule page : pas de nav
 
   const prev = document.createElement("button");
   prev.type = "button";
@@ -309,12 +568,12 @@ function renderNav() {
       scrollToTop();
     }
   });
-  nav.appendChild(prev);
+  els.nav.appendChild(prev);
 
   const pos = document.createElement("span");
   pos.className = "carousel-position";
   pos.textContent = `Page ${state.page + 1} / ${pageCount()}`;
-  nav.appendChild(pos);
+  els.nav.appendChild(pos);
 
   const next = document.createElement("button");
   next.type = "button";
@@ -328,7 +587,7 @@ function renderNav() {
       scrollToTop();
     }
   });
-  nav.appendChild(next);
+  els.nav.appendChild(next);
 }
 
 function scrollToTop() {
@@ -337,7 +596,6 @@ function scrollToTop() {
 
 /* ---------- Chargement initial ---------- */
 async function load() {
-  const grid = document.getElementById("grid");
   try {
     const resp = await fetch(CSV_URL, { cache: "no-cache" });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -346,19 +604,54 @@ async function load() {
     state.items = sortItems(items);
   } catch (err) {
     console.error("Erreur de chargement des actualités :", err);
-    if (grid) {
-      grid.innerHTML = "";
+    if (els.grid) {
+      els.grid.innerHTML = "";
       const p = document.createElement("p");
       p.className = "empty";
       p.textContent = "Impossible de charger les actualités.";
-      grid.appendChild(p);
+      els.grid.appendChild(p);
     }
     return;
   }
   state.page = 0;
-  buildMonthOptions();
+  buildFilterMenus();
   renderGrid();
 }
 
-bindMonthFilter();
+/* ---------- Écouteurs ---------- */
+function attachListeners() {
+  let searchTimer = null;
+  els.search.addEventListener("input", (e) => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      state.searchText = e.target.value;
+      state.page = 0; // tout filtre ramène au premier lot
+      renderGrid();
+    }, 150);
+  });
+}
+
+/* ---------- Boot ---------- */
+grabEls();
+const yearDD = makeDropdown({
+  dropdown: els.yearDropdown,
+  toggle: els.yearToggle,
+  pill: els.yearPill,
+  menu: els.yearMenu,
+  set: state.selectedYears,
+  allLabel: "Toutes les années",
+  unitWord: "années",
+  labelOf: (v) => v,
+});
+const monthDD = makeDropdown({
+  dropdown: els.monthDropdown,
+  toggle: els.monthToggle,
+  pill: els.monthPill,
+  menu: els.monthMenu,
+  set: state.selectedMonths,
+  allLabel: "Tous les mois",
+  unitWord: "mois",
+  labelOf: monthLabel,
+});
+attachListeners();
 document.addEventListener("DOMContentLoaded", load);

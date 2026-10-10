@@ -11,9 +11,52 @@
     <section class="content" aria-label="Actualités">
       <div class="content-header">
         <span id="result-count" class="result-count">— actualités</span>
-        <select id="month-select" class="month-select" aria-label="Filtrer par mois">
-          <option value="">Tous les mois</option>
-        </select>
+        <div class="filters">
+          <input
+            type="search"
+            id="search"
+            class="search-input"
+            placeholder="Titre, mot-clé, lieu…"
+            autocomplete="off"
+            aria-label="Rechercher dans les actualités"
+          />
+          <div class="fdropdown" id="year-dropdown">
+            <button
+              type="button"
+              id="year-toggle"
+              class="f-toggle"
+              aria-expanded="false"
+              aria-haspopup="listbox"
+            >
+              <span class="f-pill" id="year-pill">Toutes les années</span>
+              <span class="f-caret" aria-hidden="true">▾</span>
+            </button>
+            <div
+              id="year-menu"
+              class="f-menu"
+              role="listbox"
+              aria-multiselectable="true"
+            ></div>
+          </div>
+          <div class="fdropdown" id="month-dropdown">
+            <button
+              type="button"
+              id="month-toggle"
+              class="f-toggle"
+              aria-expanded="false"
+              aria-haspopup="listbox"
+            >
+              <span class="f-pill" id="month-pill">Tous les mois</span>
+              <span class="f-caret" aria-hidden="true">▾</span>
+            </button>
+            <div
+              id="month-menu"
+              class="f-menu"
+              role="listbox"
+              aria-multiselectable="true"
+            ></div>
+          </div>
+        </div>
       </div>
       <div id="grid" class="grid">
         <p class="muted center">Chargement des actualités…</p>
