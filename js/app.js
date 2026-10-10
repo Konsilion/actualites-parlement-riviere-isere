@@ -173,7 +173,7 @@ function renderCard(item) {
   meta.textContent = segs.join(" · ");
   if (segs.length) card.appendChild(meta);
 
-  if (item.lien) {
+  if (item.lien && /^https?:\/\//i.test(item.lien)) {
     const linkWrap = document.createElement("p");
     linkWrap.className = "card-link";
     const a = document.createElement("a");
