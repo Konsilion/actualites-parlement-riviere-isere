@@ -1,3 +1,6 @@
 # Python
 __pycache__/
 *.pyc
+
+# Documentation interne (décision CEO 11/10/26) : locale uniquement, JAMAIS en ligne
+README.md
